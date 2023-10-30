@@ -6,11 +6,13 @@ import model.Room;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
-public class MettingImpl2 extends Meeting {
+public class MeetingImpl2 extends Meeting {
     List<LocalDate> exceptions = new ArrayList<>();
-    public MettingImpl2(MeetingBuilder builder) {
+    private HashMap<String, String> additionalAttributes = new HashMap<>();
+    private MeetingImpl2(MeetingBuilder builder) {
         super(builder.day, builder.timeStart, builder.timeEnd, builder.room);
         this.exceptions = builder.exceptions;
     }
@@ -32,6 +34,8 @@ public class MettingImpl2 extends Meeting {
         private LocalTime timeEnd;
         private Room room;
         private List<LocalDate> exceptions = new ArrayList<>();
+        private HashMap<String, String> additionalAttributes = new HashMap<>();
+
 
         public MeetingBuilder withDay(LocalDate day) {
             this.day = day;
@@ -58,9 +62,15 @@ public class MettingImpl2 extends Meeting {
             return this;
         }
 
-        public MettingImpl2 build() {
+        public MeetingBuilder withAttribute(String key, String value) {
+            this.additionalAttributes.put(key, value);
+            return this;
+        }
+
+
+        public MeetingImpl2 build() {
             // Perform validation if necessary
-            return new MettingImpl2(this);
+            return new MeetingImpl2(this);
         }
     }
 
