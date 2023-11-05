@@ -4,50 +4,36 @@ import model.Meeting;
 import model.Room;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
 public class MeetingImpl2 extends Meeting {
-    List<LocalDate> exceptions = new ArrayList<>();
-    private HashMap<String, String> additionalAttributes = new HashMap<>();
+
+    public MeetingImpl2() {
+        super(null, null, null);
+    }
     private MeetingImpl2(MeetingBuilder builder) {
-        super(builder.day, builder.timeStart, builder.timeEnd, builder.room);
-        this.exceptions = builder.exceptions;
+        super(builder.timeStart, builder.timeEnd, builder.room, builder.additionalAttributes);
     }
 
-    public void addException(LocalDate exceptionDate) {
-        this.exceptions.add(exceptionDate);
-    }
 
-    public void removeException(LocalDate date) {
-        exceptions.remove(date);
-    }
-
-    public boolean isException(LocalDate date) {
-        return exceptions.contains(date);
-    }
     public static class MeetingBuilder {
-        private LocalDate day;
-        private LocalTime timeStart;
-        private LocalTime timeEnd;
+        private LocalDateTime timeStart;
+        private LocalDateTime timeEnd;
         private Room room;
         private List<LocalDate> exceptions = new ArrayList<>();
         private HashMap<String, String> additionalAttributes = new HashMap<>();
 
 
-        public MeetingBuilder withDay(LocalDate day) {
-            this.day = day;
-            return this;
-        }
-
-        public MeetingBuilder withTimeStart(LocalTime start) {
+        public MeetingBuilder withTimeStart(LocalDateTime start) {
             this.timeStart = start;
             return this;
         }
 
-        public MeetingBuilder withTimeEnd(LocalTime end) {
+        public MeetingBuilder withTimeEnd(LocalDateTime end) {
             this.timeEnd = end;
             return this;
         }
@@ -72,10 +58,5 @@ public class MeetingImpl2 extends Meeting {
             // Perform validation if necessary
             return new MeetingImpl2(this);
         }
-    }
-
-    @Override
-    protected void isValid() {
-        return;
     }
 }

@@ -1,12 +1,15 @@
 package com.raf.bosko_impl2.implementation2;
 
-import implementation.ScheduleInterface;
+import implementation.Schedule;
+import lombok.Getter;
+import lombok.Setter;
 import model.Meeting;
 
 import java.util.ArrayList;
 import java.util.List;
-
-public class WeeklySchedule implements ScheduleInterface<WeeklySchedule> {
+@Getter
+@Setter
+public class WeeklySchedule extends Schedule<WeeklySchedule> {
     List<Meeting> meetings = new ArrayList<>();
 
     // Singleton pattern lazy synchronized

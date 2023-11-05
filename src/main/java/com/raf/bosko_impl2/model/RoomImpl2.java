@@ -8,9 +8,8 @@ public class RoomImpl2 extends Room {
 
     String name;
     HashMap<String, Object> features;
-    public RoomImpl2(String name, String roomType) {
-        super();
-        this.name = name;
+    public RoomImpl2(String name) {
+        super(name);
         this.features = new HashMap<>();
     }
 
