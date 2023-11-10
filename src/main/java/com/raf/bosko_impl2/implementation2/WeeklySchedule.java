@@ -5,6 +5,10 @@ import lombok.Getter;
 import lombok.Setter;
 import model.Meeting;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 @Getter
@@ -44,6 +48,16 @@ public class WeeklySchedule extends Schedule<WeeklySchedule> {
     public WeeklySchedule filterMeetings(Object... objects)
     {
 
+        return null;
+    }
+
+    @Override
+    public WeeklySchedule filterMeetings(DayOfWeek dayOfWeek, LocalDate localDate, LocalDate localDate1, LocalTime localTime, LocalTime localTime1) {
+        return null;
+    }
+
+    @Override
+    public WeeklySchedule filterMeetings(LocalDateTime localDateTime) {
         return null;
     }
 

@@ -6,6 +6,7 @@ import model.Meeting;
 import model.Room;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 
 import java.io.*;
@@ -33,7 +34,7 @@ public class CSVImportExport extends ScheduleImportExport {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern(mappings.get(-1));
 
         for (CSVRecord record : parser) {
-            MeetingImpl2.MeetingBuilder builder = new MeetingImpl2.MeetingBuilder();
+            MeetingImpl2 meeting = new MeetingImpl2();
             for (ConfigMapping entry : columnMappings) {
                 int columnIndex = entry.getIndex();
 
@@ -43,23 +44,27 @@ public class CSVImportExport extends ScheduleImportExport {
 
                 switch (mappings.get(columnIndex)) {
                     case "place":
-                        builder.withRoom(new Room(record.get(columnIndex)));
+                        meeting.setRoom(new Room(record.get(columnIndex)));
                         break;
 
                     case "start":
                         LocalDateTime startDateTime = LocalDateTime.parse(record.get(columnIndex), formatter);
-                        builder.withTimeStart(startDateTime);
+                        meeting.setTimeStart(startDateTime);
                         break;
 
                     case "end":
                         LocalDateTime endDateTime = LocalDateTime.parse(record.get(columnIndex), formatter);
-                        builder.withTimeEnd(endDateTime);
+                        meeting.setTimeEnd(endDateTime);
                         break;
-
+                    case "additional":
+                        meeting.getAdditionalAttributes().put(columnName, record.get(columnIndex));
+                        break;
+                    case "room":
+                        meeting.getRoom().getFeatures().put(columnName, record.get(columnIndex));
+                        break;
                 }
             }
 
-            MeetingImpl2 meeting = builder.build();
             WeeklySchedule.getInstance().addMeeting(meeting);
         }
         for(Meeting meeting : WeeklySchedule.getInstance().getMeetings()) {
@@ -89,7 +94,16 @@ public class CSVImportExport extends ScheduleImportExport {
     }
 
     @Override
-    public boolean exportData(String s) {
-        return false;
+    public boolean exportData(String filepath) throws IOException {
+        FileWriter fileWriter = new FileWriter(filepath);
+        CSVPrinter csvPrinter = new CSVPrinter(fileWriter, CSVFormat.DEFAULT);
+
+        for(Meeting meeting: WeeklySchedule.getInstance().getMeetings()){
+            csvPrinter.printRecord(meeting.getTimeEnd(), meeting.getTimeEnd(), meeting.getRoom(), meeting.getAdditionalAttributes());
+        }
+
+        fileWriter.close();
+        csvPrinter.close();
+        return true;
     }
 }

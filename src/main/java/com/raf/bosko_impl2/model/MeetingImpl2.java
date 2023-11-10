@@ -1,62 +1,43 @@
 package com.raf.bosko_impl2.model;
 
+import lombok.Getter;
+import lombok.Setter;
 import model.Meeting;
 import model.Room;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-
+@Getter
+@Setter
 public class MeetingImpl2 extends Meeting {
+    private List<LocalDate> exceptions;
 
-    public MeetingImpl2() {
-        super(null, null, null);
+    // Constructor with all the necessary parameters
+    public MeetingImpl2(){
+        super();
     }
-    private MeetingImpl2(MeetingBuilder builder) {
-        super(builder.timeStart, builder.timeEnd, builder.room, builder.additionalAttributes);
+
+    public MeetingImpl2(LocalDateTime timeStart, LocalDateTime timeEnd, Room room, HashMap<String, String> additionalAttributes) {
+        super(timeStart, timeEnd, room, additionalAttributes);
     }
 
-
-    public static class MeetingBuilder {
-        private LocalDateTime timeStart;
-        private LocalDateTime timeEnd;
-        private Room room;
-        private List<LocalDate> exceptions = new ArrayList<>();
-        private HashMap<String, String> additionalAttributes = new HashMap<>();
-
-
-        public MeetingBuilder withTimeStart(LocalDateTime start) {
-            this.timeStart = start;
-            return this;
-        }
-
-        public MeetingBuilder withTimeEnd(LocalDateTime end) {
-            this.timeEnd = end;
-            return this;
-        }
-
-        public MeetingBuilder withRoom(Room room) {
-            this.room = room;
-            return this;
-        }
-
-        public MeetingBuilder withException(LocalDate date) {
-            this.exceptions.add(date);
-            return this;
-        }
-
-        public MeetingBuilder withAttribute(String key, String value) {
-            this.additionalAttributes.put(key, value);
-            return this;
-        }
-
-
-        public MeetingImpl2 build() {
-            // Perform validation if necessary
-            return new MeetingImpl2(this);
-        }
+    public MeetingImpl2(LocalDateTime timeStart, LocalDateTime timeEnd, Room room, HashMap<String, String> additionalAttributes, List<LocalDate> exceptions) {
+        super(timeStart, timeEnd, room, additionalAttributes);
+        this.exceptions = exceptions;
     }
+
+    public String getTimeStartString() {
+        return getTimeStart() != null ? getTimeStart().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null;
+    }
+
+    // Add a method to get the timeEnd as a string
+    public String getTimeEndString() {
+        return getTimeEnd() != null ? getTimeEnd().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null;
+    }
+
 }

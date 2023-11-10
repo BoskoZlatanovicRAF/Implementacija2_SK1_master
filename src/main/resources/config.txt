@@ -4,4 +4,4 @@
 0 Ucionica place
 4 Profesor additional
 3 Predmet additional
-5 Racunar additional
+5 Racunar room

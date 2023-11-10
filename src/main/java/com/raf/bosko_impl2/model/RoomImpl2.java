@@ -6,20 +6,14 @@ import java.util.HashMap;
 
 public class RoomImpl2 extends Room {
 
-    String name;
-    HashMap<String, Object> features;
-    public RoomImpl2(String name) {
-        super(name);
-        this.features = new HashMap<>();
+    public RoomImpl2() {
     }
 
-    public boolean addFeature(String key, Object val){
+    public RoomImpl2(String name) {
+        super(name);
+    }
 
-        if (!features.keySet().contains(key)) {
-
-            features.put(key, val);
-            return true;
-        }
-        return false;
+    public RoomImpl2(String name, HashMap<String, String> features) {
+        super(name, features);
     }
 }

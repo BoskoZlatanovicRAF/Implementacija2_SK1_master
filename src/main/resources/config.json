@@ -1,7 +1,8 @@
 {
   "mandatoryFields": {
-    "place": "Ucionica",
-    "start": "Pocetak",
-    "end": "Kraj"
+    "place": "Classroom",
+    "start": "Start",
+    "end": "End",
+    "room": "Computer"
   }
 }
