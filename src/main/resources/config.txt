@@ -2,6 +2,7 @@
 1 Pocetak start
 2 Kraj end
 0 Ucionica place
-4 Profesor additional
-3 Predmet additional
-5 Racunar room
+3 DayOfWeek day
+5 Profesor additional
+4 Predmet additional
+6 Racunar room

@@ -7,6 +7,7 @@ import java.util.HashMap;
 public class RoomImpl2 extends Room {
 
     public RoomImpl2() {
+        super();
     }
 
     public RoomImpl2(String name) {
