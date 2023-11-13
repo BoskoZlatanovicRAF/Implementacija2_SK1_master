@@ -89,8 +89,21 @@ public class WeeklySchedule extends Schedule<WeeklySchedule> {
 
     private List<Gap> filterMeetingsGap(DayOfWeek dayOfWeek, LocalDate dateStart, LocalDate dateEnd, LocalTime timeStart, LocalTime timeEnd) {
         List<Gap> gaps = new ArrayList<>();
-        Map<Room, List<Meeting>> groupedMeetings = groupMeetingsByRoom(getMeetings()); // Assuming 'meetings' is a list of all meetings.
+        List<Meeting> meetings = this.getMeetings().stream().filter(meeting -> ((Meeting)meeting).getDayOfWeek().
+                equals(dayOfWeek)).
+                sorted(Comparator.comparing(Meeting::getTimeStart)).
+                collect(Collectors.toList());
+
+
+        Map<Room, List<Meeting>> groupedMeetings = groupMeetingsByRoom(meetings); // Assuming 'meetings' is a list of all meetings.
         LocalDateTime previousEndTime = null;
+
+        LocalTime globalTimeStart = LocalTime.of(9, 0);
+        LocalTime globalTimeEnd = LocalTime.of(21, 0);
+        //TODO edge case kad nema nista
+//        if(meetings.size() == 0){
+//            Gap gap = new Gap(LocalDateTime.of(this.getTimeValidFrom(), glob),this.getTimeValidTo(), null);
+//        }
         // Iterate over each date in the range.
         for (LocalDate date = dateStart; !date.isAfter(dateEnd); date = date.plusDays(1)) {
             // Check if the current date is the day of the week we're looking for.
@@ -100,11 +113,13 @@ public class WeeklySchedule extends Schedule<WeeklySchedule> {
                     Room room = entry.getKey();
                     List<Meeting> meetingsForRoom = entry.getValue();
                     boolean first = true;
-
                     for(Meeting m: meetingsForRoom){
+                        if(!(m.getTimeStart().toLocalDate().isEqual(m.getTimeEnd().toLocalDate()) && m.getTimeStart().toLocalDate().isEqual(date)) && !(m.getTimeStart().toLocalDate().isEqual(this.getTimeValidFrom()) && m.getTimeEnd().toLocalDate().isEqual(this.getTimeValidTo()))){
+                            continue;
+                        }
                         if(first){
-                            if(m.getTimeStart().toLocalTime().isAfter(LocalTime.of(9, 0))){
-                                LocalDateTime start = LocalDateTime.of(m.getTimeStart().toLocalDate(), LocalTime.of(9, 0));
+                            if(m.getTimeStart().toLocalTime().isAfter(globalTimeStart) && globalTimeStart.isAfter(timeStart)){
+                                LocalDateTime start = LocalDateTime.of(m.getTimeStart().toLocalDate(), globalTimeStart);
                                 LocalDateTime end = m.getTimeStart();
                                 Gap gap = new Gap(start, end,room);
                                 first = false;
@@ -115,9 +130,7 @@ public class WeeklySchedule extends Schedule<WeeklySchedule> {
                                     gaps.add(gap);
                                 }
                             }
-
-                        }
-                        else if(previousEndTime.toLocalTime().isBefore(m.getTimeStart().toLocalTime())){
+                            else if(previousEndTime != null && previousEndTime.toLocalTime().isBefore(m.getTimeStart().toLocalTime())){
                             LocalDateTime start = previousEndTime;
                             LocalDateTime end = m.getTimeStart();
                             Gap gap = new Gap(start, end,room);
@@ -130,20 +143,22 @@ public class WeeklySchedule extends Schedule<WeeklySchedule> {
                             }
                         }
                         previousEndTime = m.getTimeEnd();
-                    }
-                    // Check if the time slot is available for this room. TODO globalTimeStart
-                    if (previousEndTime.toLocalTime().isBefore(LocalTime.of(21, 0))) {
-                        LocalDateTime start = previousEndTime;
-                        LocalDateTime end = LocalDateTime.of(previousEndTime.toLocalDate(), LocalTime.of(21, 0));
+                        }
+                        if (previousEndTime.toLocalTime().isBefore(globalTimeEnd) ) {
+                            LocalDateTime start = previousEndTime;
+                            LocalDateTime end = LocalDateTime.of(previousEndTime.toLocalDate(), LocalTime.of(21, 0));
 
-                        Gap gap = new Gap(start, end, room);
+                            Gap gap = new Gap(start, end, room);
 
-                        if (gaps.contains(gap)) {
-                            gaps.get(gaps.indexOf(gap)).getRooms().add(room);
-                        } else {
-                            gaps.add(gap);
+                            if (gaps.contains(gap)) {
+                                gaps.get(gaps.indexOf(gap)).getRooms().add(room);
+                            } else {
+                                gaps.add(gap);
+                            }
                         }
                     }
+
+
                 }
 
             }
@@ -188,14 +203,13 @@ public class WeeklySchedule extends Schedule<WeeklySchedule> {
         return null;
     }
 
-
-
     @Override
-    public WeeklySchedule rescheduleMeeting(Meeting meeting)
-    {
-
+    public WeeklySchedule rescheduleMeeting(Meeting meeting, LocalDateTime localDateTime, LocalDateTime localDateTime1) {
         return null;
     }
+
+
+
 
 
     private Map<Room, List<Meeting>> groupMeetingsByRoom(List<Meeting> meetings) {
