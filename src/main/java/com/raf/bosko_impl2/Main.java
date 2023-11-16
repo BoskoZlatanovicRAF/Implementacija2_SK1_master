@@ -25,7 +25,7 @@ public class Main {
 
         weeklySchedule.setMeetings(meetingList);
 
-        weeklySchedule.filterMeetings(DayOfWeek.MONDAY, LocalDate.of(2023, 10, 1), LocalDate.of(2023, 10, 31), LocalTime.of(12, 0), LocalTime.of(18, 0));
+        weeklySchedule.filterMeetings(DayOfWeek.MONDAY, LocalDate.of(2023, 10, 8), LocalDate.of(2023, 10, 12), LocalTime.of(12, 0), LocalTime.of(18, 0));
         System.out.println("--------");
     }
 }

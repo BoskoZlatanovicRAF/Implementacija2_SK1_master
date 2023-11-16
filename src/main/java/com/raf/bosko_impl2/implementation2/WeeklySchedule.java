@@ -2,7 +2,6 @@ package com.raf.bosko_impl2.implementation2;
 
 import implementation.Schedule;
 import lombok.Getter;
-import lombok.Setter;
 import model.Gap;
 import model.Meeting;
 import model.Room;
@@ -94,35 +93,36 @@ public class WeeklySchedule extends Schedule<WeeklySchedule> {
                 sorted(Comparator.comparing(Meeting::getTimeStart)).
                 collect(Collectors.toList());
 
-
-        Map<Room, List<Meeting>> groupedMeetings = groupMeetingsByRoom(meetings); // Assuming 'meetings' is a list of all meetings.
-        LocalDateTime previousEndTime = null;
+        Map<Room, List<Meeting>> groupedMeetings = groupMeetingsByRoom(meetings);
+        LocalTime previousEndTime = null;
 
         LocalTime globalTimeStart = LocalTime.of(9, 0);
         LocalTime globalTimeEnd = LocalTime.of(21, 0);
-        //TODO edge case kad nema nista
-//        if(meetings.size() == 0){
-//            Gap gap = new Gap(LocalDateTime.of(this.getTimeValidFrom(), glob),this.getTimeValidTo(), null);
-//        }
-        // Iterate over each date in the range.
+
         for (LocalDate date = dateStart; !date.isAfter(dateEnd); date = date.plusDays(1)) {
-            // Check if the current date is the day of the week we're looking for.
+
             if (date.getDayOfWeek() == dayOfWeek) {
-                // Now check for each room.
+
                 for (Map.Entry<Room, List<Meeting>> entry : groupedMeetings.entrySet()) {
                     Room room = entry.getKey();
+
                     List<Meeting> meetingsForRoom = entry.getValue();
+                    if(previousEndTime != null && timeStart.isBefore(previousEndTime)){
+                        previousEndTime = timeStart;
+                    }
+                    else{
+                        previousEndTime = globalTimeStart;
+                    }
                     boolean first = true;
                     for(Meeting m: meetingsForRoom){
                         if(!(m.getTimeStart().toLocalDate().isEqual(m.getTimeEnd().toLocalDate()) && m.getTimeStart().toLocalDate().isEqual(date)) && !(m.getTimeStart().toLocalDate().isEqual(this.getTimeValidFrom()) && m.getTimeEnd().toLocalDate().isEqual(this.getTimeValidTo()))){
                             continue;
                         }
-                        if(first){
-                            if(m.getTimeStart().toLocalTime().isAfter(globalTimeStart) && globalTimeStart.isAfter(timeStart)){
+                        if(m.getTimeStart().toLocalTime().isAfter(previousEndTime)){
+                            if(m.getTimeStart().toLocalTime().isAfter(globalTimeStart)){
                                 LocalDateTime start = LocalDateTime.of(m.getTimeStart().toLocalDate(), globalTimeStart);
-                                LocalDateTime end = m.getTimeStart();
+                                LocalDateTime end = LocalDateTime.of(m.getTimeEnd().toLocalDate(), m.getTimeStart().toLocalTime());
                                 Gap gap = new Gap(start, end,room);
-                                first = false;
                                 if (gaps.contains(gap)){
                                     gaps.get(gaps.indexOf(gap)).getRooms().add(room);
                                 }
@@ -130,34 +130,66 @@ public class WeeklySchedule extends Schedule<WeeklySchedule> {
                                     gaps.add(gap);
                                 }
                             }
-                            else if(previousEndTime != null && previousEndTime.toLocalTime().isBefore(m.getTimeStart().toLocalTime())){
-                            LocalDateTime start = previousEndTime;
-                            LocalDateTime end = m.getTimeStart();
-                            Gap gap = new Gap(start, end,room);
 
-                            if (gaps.contains(gap)){
-                                gaps.get(gaps.indexOf(gap)).getRooms().add(room);
+                        }
+                        else {
+                            int index = meetingsForRoom.indexOf(m);
+                            if(index + 1 < meetingsForRoom.size()){
+                                Meeting nextMeeting = meetingsForRoom.get(index + 1);
+                                boolean flag = false;
+                                LocalDateTime start = LocalDateTime.of(m.getTimeStart().toLocalDate(), m.getTimeEnd().toLocalTime());
+                                LocalDateTime end = LocalDateTime.of(m.getTimeEnd().toLocalDate(), nextMeeting.getTimeStart().toLocalTime());
+                                if(end.toLocalTime().isAfter(timeEnd)){
+                                    end = LocalDateTime.of(m.getTimeEnd().toLocalDate(), timeEnd);
+                                    flag = true;
+                                }
+
+                                Gap gap = new Gap(start, end,room);
+                                if (gaps.contains(gap)){
+                                    gaps.get(gaps.indexOf(gap)).getRooms().add(room);
+                                }
+                                else {
+                                    gaps.add(gap);
+                                }
+
+                                if(flag){
+                                    break;
+                                }
+
                             }
                             else {
-                                gaps.add(gap);
+                                LocalDateTime start = LocalDateTime.of(m.getTimeStart().toLocalDate(), m.getTimeEnd().toLocalTime());
+                                LocalDateTime end = LocalDateTime.of(m.getTimeEnd().toLocalDate(), globalTimeEnd);
+
+                                if(end.toLocalTime().isAfter(timeEnd)){
+                                    end = LocalDateTime.of(m.getTimeEnd().toLocalDate(), timeEnd);
+
+                                }
+
+                                Gap gap = new Gap(start, end,room);
+                                if (gaps.contains(gap)){
+                                    gaps.get(gaps.indexOf(gap)).getRooms().add(room);
+                                }
+                                else {
+                                    gaps.add(gap);
+                                }
                             }
                         }
-                        previousEndTime = m.getTimeEnd();
-                        }
-                        if (previousEndTime.toLocalTime().isBefore(globalTimeEnd) ) {
-                            LocalDateTime start = previousEndTime;
-                            LocalDateTime end = LocalDateTime.of(previousEndTime.toLocalDate(), LocalTime.of(21, 0));
+                        previousEndTime = m.getTimeEnd().toLocalTime();
 
-                            Gap gap = new Gap(start, end, room);
-
-                            if (gaps.contains(gap)) {
-                                gaps.get(gaps.indexOf(gap)).getRooms().add(room);
-                            } else {
-                                gaps.add(gap);
-                            }
-                        }
                     }
-
+//                    if (previousEndTime.isBefore(globalTimeEnd) ) {
+//                        LocalDateTime start = LocalDateTime.of(date, previousEndTime);
+//                        LocalDateTime end = LocalDateTime.of(date, globalTimeEnd);
+//
+//                        Gap gap = new Gap(start, end, room);
+//
+//                        if (gaps.contains(gap)) {
+//                            gaps.get(gaps.indexOf(gap)).getRooms().add(room);
+//                        } else {
+//                            gaps.add(gap);
+//                        }
+//                    }
 
                 }
 
@@ -168,34 +200,6 @@ public class WeeklySchedule extends Schedule<WeeklySchedule> {
         return gaps;
     }
 
-
-
-
-    // Helper method to find an existing gap
-    private Gap findExistingGap(List<Gap> gaps, Gap newGap) {
-        for (Gap existingGap : gaps) {
-            if (existingGap.getStartTime().equals(newGap.getStartTime()) &&
-                    existingGap.getEndTime().equals(newGap.getEndTime())) {
-                return existingGap;
-            }
-        }
-        return null;
-    }
-
-
-    private boolean isTimeSlotFree(List<Meeting> meetings, LocalDate date, LocalTime start, LocalTime end) {
-        LocalDateTime startDateTime = LocalDateTime.of(date, start);
-        LocalDateTime endDateTime = LocalDateTime.of(date, end);
-
-        for (Meeting meeting : meetings) {
-            // If the meeting overlaps with the desired time slot, return false.
-            if (meeting.getTimeStart().isBefore(endDateTime) && meeting.getTimeEnd().isAfter(startDateTime)) {
-                return false;
-            }
-        }
-        // If no meetings overlap, the time slot is free.
-        return true;
-    }
 
 
     @Override
@@ -209,9 +213,6 @@ public class WeeklySchedule extends Schedule<WeeklySchedule> {
     }
 
 
-
-
-
     private Map<Room, List<Meeting>> groupMeetingsByRoom(List<Meeting> meetings) {
         return meetings.stream()
                 .collect(Collectors.groupingBy(Meeting::getRoom));
@@ -219,3 +220,55 @@ public class WeeklySchedule extends Schedule<WeeklySchedule> {
 
 
 }
+/*
+
+
+
+
+                                        for(Meeting m: meetingsForRoom){
+                        if(first) {
+                            if (m.getTimeStart().toLocalDate().isBefore(date) && m.getTimeEnd().toLocalDate().isAfter(date) || m.getTimeStart().toLocalDate().isEqual(date)) {
+                                if (m.getTimeStart().toLocalTime().isAfter(globalTimeStart)) {
+                                    LocalDateTime gapStart = LocalDateTime.of(date, globalTimeStart);
+                                    LocalDateTime gapEnd = LocalDateTime.of(date, m.getTimeEnd().toLocalTime());
+                                    Gap gap = new Gap(gapStart, gapEnd, room);
+
+                                    if (gaps.contains(gap)) {
+                                        gaps.get(gaps.indexOf(gap)).getRooms().add(room);
+                                    } else {
+                                        gaps.add(gap);
+                                    }
+                                }
+                                else if(previousEndTime != null && previousEndTime.isBefore(m.getTimeStart().toLocalTime())){
+                                    LocalDateTime start = LocalDateTime.of(date, previousEndTime);
+                                    LocalDateTime end = m.getTimeStart();
+                                    Gap gap = new Gap(start, end,room);
+
+                                    if (gaps.contains(gap)){
+                                        gaps.get(gaps.indexOf(gap)).getRooms().add(room);
+                                    }
+                                    else {
+                                        gaps.add(gap);
+                                    }
+                                }
+                            }
+                            first = false;
+                            previousEndTime = m.getTimeEnd().toLocalTime();
+                        }
+                        if (previousEndTime.isBefore(globalTimeEnd) ) {
+                            LocalDateTime start = LocalDateTime.of(date, previousEndTime);;
+                            LocalDateTime end = LocalDateTime.of(date, LocalTime.of(21, 0));
+
+                            Gap gap = new Gap(start, end, room);
+
+                            if (gaps.contains(gap)) {
+                                gaps.get(gaps.indexOf(gap)).getRooms().add(room);
+                            } else {
+                                gaps.add(gap);
+                            }
+                        }
+
+
+                    }
+
+*/
