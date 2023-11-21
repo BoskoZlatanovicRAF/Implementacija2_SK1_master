@@ -1,31 +1,42 @@
 package com.raf.bosko_impl2.implementation2;
 
 import implementation.Schedule;
+import importExport.CSVImportExport;
+import importExport.JSONImportExport;
+import importExport.PDF_Export;
 import lombok.Getter;
+import lombok.SneakyThrows;
 import model.Gap;
 import model.Meeting;
 import model.Room;
 
+import java.io.IOException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Getter
 
 public class WeeklySchedule extends Schedule<WeeklySchedule> {
 
-    private List<LocalDate> exceptions;
-
+    private List<LocalDate> exceptions = new ArrayList<>();
     // Singleton pattern lazy synchronized
     private static class Loader {
         static final WeeklySchedule INSTANCE = new WeeklySchedule();
     }
 
-    private WeeklySchedule () {
 
+    private WeeklySchedule() {
+
+    }
+
+    @Override
+    public void setExceptions(List<LocalDate> exceptions) {
+        this.exceptions = exceptions;
     }
 
     public static WeeklySchedule getInstance() {
@@ -41,234 +52,280 @@ public class WeeklySchedule extends Schedule<WeeklySchedule> {
     }
 
     public void setMeetings(List<Meeting> meetings) {
-        super.setMeetings(meetings);
+
+        for(Meeting m: meetings){
+
+            this.addMeeting(m);
+        }
         validateMeetings();
+    }
+
+    @Override
+    public List<Gap> filterMeetingsGapsByTimeSpan(DayOfWeek dayOfWeek, LocalDate startDate, LocalDate endDate, LocalTime startTime, LocalTime endTime) {
+
+
+        List<Gap> gaps = new ArrayList<>();
+
+        for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)){
+
+            if (exceptions.contains(date)){
+                continue;
+            }
+            LocalDate finalDate = date;
+            List<Meeting> tempList = this.getMeetings().stream().filter(meeting -> ((Meeting) meeting).getTimeStart().toLocalDate().
+                            equals(meeting.getTimeEnd().toLocalDate()) && meeting.getTimeStart().getDayOfWeek().equals(dayOfWeek) &&
+                            meeting.getTimeStart().toLocalDate().equals(finalDate)).
+                    sorted(Comparator.comparing(Meeting::getTimeStart)).
+                    collect(Collectors.toList());
+
+
+            if (tempList.isEmpty()){
+                continue;
+            }
+            Map<Room, List<Meeting>> groupedMeetings = groupMeetingsByRoom(tempList);
+
+            List<Gap> gapsToBeAdded = super.findGaps(groupedMeetings,startTime,endTime);
+            gaps.addAll(gapsToBeAdded);
+        }
+
+        List<Meeting> scheduledMeetings = this.getMeetings().stream().filter(meeting -> ((Meeting) meeting).getDayOfWeek().equals(dayOfWeek) &&
+                !meeting.getTimeStart().toLocalDate().isEqual(meeting.getTimeEnd().toLocalDate())).
+                sorted(Comparator.comparing(Meeting::getTimeStart)).
+                collect(Collectors.toList());
+
+
+        Map<Room, List<Meeting>> groupedMeetings = groupMeetingsByRoom(scheduledMeetings);
+        List<Gap> newGaps = findGaps(groupedMeetings,startTime,endTime);
+
+        gaps.addAll(newGaps);
+
+
+        return gaps;
+    }
+
+    @Override
+    public List<Meeting> filterMeetingsByTimeSpan(DayOfWeek dayOfWeek, LocalDate startDate, LocalDate endDate, LocalTime startTime, LocalTime endTime) {
+
+
+        List<Meeting> weeklyMeetings = this.getMeetings().stream().filter(meeting -> ((Meeting) meeting).getDayOfWeek().
+                        equals(dayOfWeek) && !meeting.getTimeStart().toLocalDate().isEqual(meeting.getTimeEnd().toLocalDate())).
+                sorted(Comparator.comparing(Meeting::getTimeStart)).
+                collect(Collectors.toList());
+
+
+        List<Meeting> oneTimeMeetings = this.getMeetings().stream().filter(meeting -> meeting.inDateRange(startDate,endDate)
+                && (meeting.getTimeStart().toLocalTime().isAfter(startTime) || meeting.getTimeStart().toLocalTime().equals(startTime)) &&
+                (meeting.getTimeEnd().toLocalTime().isAfter(endTime) || meeting.getTimeEnd().toLocalTime().equals(endTime))
+                && meeting.getDayOfWeek().equals(dayOfWeek)).collect(Collectors.toList());
+
+
+        weeklyMeetings.addAll(oneTimeMeetings);
+
+        return  weeklyMeetings;
+
+    }
+
+    @Override
+    public List<Gap> filterMeetingsGaps(LocalDate localDate) {
+        List<Gap> gaps = new ArrayList<>();
+        DayOfWeek dayOfWeek = localDate.getDayOfWeek();
+        if (exceptions.contains(localDate)){
+            return null;
+        }
+
+        List<Meeting> tempList = this.getMeetings().stream().filter(meeting -> ((Meeting) meeting).getTimeStart().toLocalDate().
+                        equals(meeting.getTimeEnd().toLocalDate()) && meeting.getTimeStart().getDayOfWeek().equals(dayOfWeek) &&
+                        meeting.getTimeStart().toLocalDate().equals(localDate)).
+                sorted(Comparator.comparing(Meeting::getTimeStart)).
+                collect(Collectors.toList());
+
+        Map<Room, List<Meeting>> groupedMeetings = groupMeetingsByRoom(tempList);
+
+        List<Gap> gapsToBeAdded = super.findGaps(groupedMeetings,this.getScheduleTimeStart(),this.getScheduleTImeEnd());
+        gaps.addAll(gapsToBeAdded);
+
+
+        List<Meeting> scheduledMeetings = this.getMeetings().stream().filter(meeting -> ((Meeting) meeting).getDayOfWeek().equals(dayOfWeek) &&
+                        !meeting.getTimeStart().toLocalDate().isEqual(meeting.getTimeEnd().toLocalDate())).
+                sorted(Comparator.comparing(Meeting::getTimeStart)).
+                collect(Collectors.toList());
+
+
+        Map<Room, List<Meeting>> groupedMeetings2 = groupMeetingsByRoom(scheduledMeetings);
+        List<Gap> newGaps = findGaps(groupedMeetings2,this.getScheduleTimeStart(),this.getScheduleTImeEnd());
+
+        gaps.addAll(newGaps);
+
+
+        return gaps;
+
+    }
+
+    @Override
+    public List<Meeting> filterMeetings(LocalDate localDate) {
+        DayOfWeek dayOfWeek = localDate.getDayOfWeek();
+        List<Meeting> weeklyMeetings = this.getMeetings().stream().filter(meeting -> ((Meeting) meeting).getDayOfWeek().
+                        equals(dayOfWeek) && !meeting.getTimeStart().toLocalDate().isEqual(meeting.getTimeEnd().toLocalDate())).
+                sorted(Comparator.comparing(Meeting::getTimeStart)).
+                collect(Collectors.toList());
+
+        List<Meeting> oneTimeMeetings = this.getMeetings().stream().filter(meeting -> meeting.isOnSameDay(localDate)
+                && meeting.getDayOfWeek().equals(dayOfWeek)).collect(Collectors.toList());
+
+        weeklyMeetings.addAll(oneTimeMeetings);
+        return weeklyMeetings;
+
+    }
+
+    @Override
+    public boolean importSchedule(String fileDest,String type) {
+        if (type.equals("csv")){
+            CSVImportExport csvImportExport = new CSVImportExport();
+            try {
+                List <Meeting> meetingList = csvImportExport.importData(fileDest, "src/main/resources/config.txt");
+
+                this.setMeetings(meetingList);
+
+                return true;
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        else {
+
+            JSONImportExport jsonImportExport = new JSONImportExport();
+            try {
+                List <Meeting> meetingList = jsonImportExport.importData(fileDest,"src/main/resources/config.json");
+                this.setMeetings(meetingList);
+
+                return true;
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+
+        }
+
+    }
+
+    @Override
+    public boolean importSchedule(String configPath, String FilePath, String type) {
+        if (type.equals("csv")){
+            CSVImportExport csvImportExport = new CSVImportExport();
+            try {
+                List <Meeting> meetingList = csvImportExport.importData(FilePath, configPath);
+
+                this.setMeetings(meetingList);
+
+                return true;
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        else {
+
+            JSONImportExport jsonImportExport = new JSONImportExport();
+            try {
+                List <Meeting> meetingList = jsonImportExport.importData(FilePath,configPath);
+                this.setMeetings(meetingList);
+
+                return true;
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+
+        }
+    }
+
+    @SneakyThrows
+    @Override
+    public boolean exportSchedule(String dest, String type) {
+        if(type.equals("pdf")){
+            PDF_Export pdfExport = new PDF_Export();
+            pdfExport.exportData(dest,this.getMeetings());
+            return true;
+        }
+        else {
+            JSONImportExport jsonImportExport = new JSONImportExport();
+            jsonImportExport.exportData(dest,this.getMeetings());
+            return true;
+        }
+    }
+    @Override
+    public boolean addMeeting(Meeting meeting) {
+
+        if (this.getMeetings().size() == 0){
+            this.getMeetings().add(meeting);
+            if (!getRooms().contains(meeting.getRoom())){
+                getRooms().add(meeting.getRoom());
+            }
+            return true;
+        }
+
+        Stream<Meeting> s = this.getMeetings().stream();
+
+        if (s.anyMatch(existingMeeteng -> existingMeeteng.overlapsWith(meeting))){
+            return false;
+        }
+        else {
+            this.getMeetings().add(meeting);
+        }
+        if (!getRooms().contains(meeting.getRoom())){
+            getRooms().add(meeting.getRoom());
+        }
+        return true;
+    }
+
+    @Override
+    public WeeklySchedule innitSchedule() {
+        return getInstance();
     }
 
 
     @Override
-    public WeeklySchedule initSchedule() {
-        return getInstance();
+    public boolean rescheduleMeeting(Meeting meeting, LocalDateTime startTime, LocalDateTime endTime,DayOfWeek dayOfWeek) {
+
+
+        Meeting newMeeting = new Meeting(startTime,endTime,meeting.getRoom());
+        newMeeting.setDayOfWeek(dayOfWeek);
+        newMeeting.setAdditionalAttributes(meeting.getAdditionalAttributes());
+
+        if (this.addMeeting(newMeeting)){
+
+            this.getMeetings().remove(meeting);
+            return true;
+        }
+
+        return false;
+
+    }
+
+    @Override
+    public boolean rescheduleMeeting(LocalDateTime oldTimeStart, LocalDateTime oldTimeEnd, String room, LocalDateTime timeStart, LocalDateTime timeEnd,DayOfWeek dayOfWeek) {
+
+        List<Meeting> m = getMeetings().stream().filter(meeting -> meeting.getTimeStart().equals(oldTimeStart) &&
+                        meeting.getTimeEnd().equals(oldTimeEnd) && meeting.getRoom().getName().equals(room) && meeting.getDayOfWeek().equals(dayOfWeek))
+                .collect(Collectors.toList());
+
+        if (m.size() ==0){
+            return false;
+        }
+        Meeting meeting = m.get(0);
+
+        return rescheduleMeeting(meeting,timeStart,timeEnd,dayOfWeek);
+
     }
 
     private void validateMeetings() {
-        for(Meeting meeting: WeeklySchedule.getInstance().getMeetings()){
-            if(meeting.getTimeStart().toLocalDate().isEqual(LocalDate.of(1000, 1,1))){
+        for (Meeting meeting : WeeklySchedule.getInstance().getMeetings()) {
+            if (meeting.getTimeStart().toLocalDate().isEqual(LocalDate.of(1000, 1, 1))) {
                 meeting.setTimeStart(LocalDateTime.of(getTimeValidFrom(), meeting.getTimeStart().toLocalTime()));
                 meeting.setTimeEnd(LocalDateTime.of(getTimeValidTo(), meeting.getTimeEnd().toLocalTime()));
             }
         }
     }
 
-    @Override
-    public WeeklySchedule addMeeting(Meeting meeting) {
-        getMeetings().add(meeting);
-        return null;
-    }
-
-    @Override
-    public WeeklySchedule removeMeeting(Meeting meeting) {
-        getMeetings().remove(meeting);
-        return null;
-    }
-
-    @Override
-    public WeeklySchedule filterMeetings(Object... objects)
-    {
-
-
-        return null;
-    }
-
-    @Override
-    public WeeklySchedule filterMeetings(DayOfWeek dayOfWeek, LocalDate dateStart, LocalDate dateEnd, LocalTime timeStart, LocalTime timeEnd) {
-        filterMeetingsGap(dayOfWeek, dateStart, dateEnd, timeStart, timeEnd);
-        return null;
-    }
-
-    private List<Gap> filterMeetingsGap(DayOfWeek dayOfWeek, LocalDate dateStart, LocalDate dateEnd, LocalTime timeStart, LocalTime timeEnd) {
-        List<Gap> gaps = new ArrayList<>();
-        List<Meeting> meetings = this.getMeetings().stream().filter(meeting -> ((Meeting)meeting).getDayOfWeek().
-                equals(dayOfWeek)).
-                sorted(Comparator.comparing(Meeting::getTimeStart)).
-                collect(Collectors.toList());
-
-        Map<Room, List<Meeting>> groupedMeetings = groupMeetingsByRoom(meetings);
-        LocalTime previousEndTime = null;
-
-        LocalTime globalTimeStart = LocalTime.of(9, 0);
-        LocalTime globalTimeEnd = LocalTime.of(21, 0);
-
-        for (LocalDate date = dateStart; !date.isAfter(dateEnd); date = date.plusDays(1)) {
-
-            if (date.getDayOfWeek() == dayOfWeek) {
-
-                for (Map.Entry<Room, List<Meeting>> entry : groupedMeetings.entrySet()) {
-                    Room room = entry.getKey();
-
-                    List<Meeting> meetingsForRoom = entry.getValue();
-                    if(previousEndTime != null && timeStart.isBefore(previousEndTime)){
-                        previousEndTime = timeStart;
-                    }
-                    else{
-                        previousEndTime = globalTimeStart;
-                    }
-                    boolean first = true;
-                    for(Meeting m: meetingsForRoom){
-                        if(!(m.getTimeStart().toLocalDate().isEqual(m.getTimeEnd().toLocalDate()) && m.getTimeStart().toLocalDate().isEqual(date)) && !(m.getTimeStart().toLocalDate().isEqual(this.getTimeValidFrom()) && m.getTimeEnd().toLocalDate().isEqual(this.getTimeValidTo()))){
-                            continue;
-                        }
-                        if(m.getTimeStart().toLocalTime().isAfter(previousEndTime)){
-                            if(m.getTimeStart().toLocalTime().isAfter(globalTimeStart)){
-                                LocalDateTime start = LocalDateTime.of(m.getTimeStart().toLocalDate(), globalTimeStart);
-                                LocalDateTime end = LocalDateTime.of(m.getTimeEnd().toLocalDate(), m.getTimeStart().toLocalTime());
-                                Gap gap = new Gap(start, end,room);
-                                if (gaps.contains(gap)){
-                                    gaps.get(gaps.indexOf(gap)).getRooms().add(room);
-                                }
-                                else {
-                                    gaps.add(gap);
-                                }
-                            }
-
-                        }
-                        else {
-                            int index = meetingsForRoom.indexOf(m);
-                            if(index + 1 < meetingsForRoom.size()){
-                                Meeting nextMeeting = meetingsForRoom.get(index + 1);
-                                boolean flag = false;
-                                LocalDateTime start = LocalDateTime.of(m.getTimeStart().toLocalDate(), m.getTimeEnd().toLocalTime());
-                                LocalDateTime end = LocalDateTime.of(m.getTimeEnd().toLocalDate(), nextMeeting.getTimeStart().toLocalTime());
-                                if(end.toLocalTime().isAfter(timeEnd)){
-                                    end = LocalDateTime.of(m.getTimeEnd().toLocalDate(), timeEnd);
-                                    flag = true;
-                                }
-
-                                Gap gap = new Gap(start, end,room);
-                                if (gaps.contains(gap)){
-                                    gaps.get(gaps.indexOf(gap)).getRooms().add(room);
-                                }
-                                else {
-                                    gaps.add(gap);
-                                }
-
-                                if(flag){
-                                    break;
-                                }
-
-                            }
-                            else {
-                                LocalDateTime start = LocalDateTime.of(m.getTimeStart().toLocalDate(), m.getTimeEnd().toLocalTime());
-                                LocalDateTime end = LocalDateTime.of(m.getTimeEnd().toLocalDate(), globalTimeEnd);
-
-                                if(end.toLocalTime().isAfter(timeEnd)){
-                                    end = LocalDateTime.of(m.getTimeEnd().toLocalDate(), timeEnd);
-
-                                }
-
-                                Gap gap = new Gap(start, end,room);
-                                if (gaps.contains(gap)){
-                                    gaps.get(gaps.indexOf(gap)).getRooms().add(room);
-                                }
-                                else {
-                                    gaps.add(gap);
-                                }
-                            }
-                        }
-                        previousEndTime = m.getTimeEnd().toLocalTime();
-
-                    }
-//                    if (previousEndTime.isBefore(globalTimeEnd) ) {
-//                        LocalDateTime start = LocalDateTime.of(date, previousEndTime);
-//                        LocalDateTime end = LocalDateTime.of(date, globalTimeEnd);
-//
-//                        Gap gap = new Gap(start, end, room);
-//
-//                        if (gaps.contains(gap)) {
-//                            gaps.get(gaps.indexOf(gap)).getRooms().add(room);
-//                        } else {
-//                            gaps.add(gap);
-//                        }
-//                    }
-
-                }
-
-            }
-
-        }
-
-        return gaps;
-    }
-
-
-
-    @Override
-    public WeeklySchedule filterMeetings(LocalDateTime localDateTime) {
-        return null;
-    }
-
-    @Override
-    public WeeklySchedule rescheduleMeeting(Meeting meeting, LocalDateTime localDateTime, LocalDateTime localDateTime1) {
-        return null;
-    }
-
-
     private Map<Room, List<Meeting>> groupMeetingsByRoom(List<Meeting> meetings) {
         return meetings.stream()
                 .collect(Collectors.groupingBy(Meeting::getRoom));
     }
-
-
 }
-/*
-
-
-
-
-                                        for(Meeting m: meetingsForRoom){
-                        if(first) {
-                            if (m.getTimeStart().toLocalDate().isBefore(date) && m.getTimeEnd().toLocalDate().isAfter(date) || m.getTimeStart().toLocalDate().isEqual(date)) {
-                                if (m.getTimeStart().toLocalTime().isAfter(globalTimeStart)) {
-                                    LocalDateTime gapStart = LocalDateTime.of(date, globalTimeStart);
-                                    LocalDateTime gapEnd = LocalDateTime.of(date, m.getTimeEnd().toLocalTime());
-                                    Gap gap = new Gap(gapStart, gapEnd, room);
-
-                                    if (gaps.contains(gap)) {
-                                        gaps.get(gaps.indexOf(gap)).getRooms().add(room);
-                                    } else {
-                                        gaps.add(gap);
-                                    }
-                                }
-                                else if(previousEndTime != null && previousEndTime.isBefore(m.getTimeStart().toLocalTime())){
-                                    LocalDateTime start = LocalDateTime.of(date, previousEndTime);
-                                    LocalDateTime end = m.getTimeStart();
-                                    Gap gap = new Gap(start, end,room);
-
-                                    if (gaps.contains(gap)){
-                                        gaps.get(gaps.indexOf(gap)).getRooms().add(room);
-                                    }
-                                    else {
-                                        gaps.add(gap);
-                                    }
-                                }
-                            }
-                            first = false;
-                            previousEndTime = m.getTimeEnd().toLocalTime();
-                        }
-                        if (previousEndTime.isBefore(globalTimeEnd) ) {
-                            LocalDateTime start = LocalDateTime.of(date, previousEndTime);;
-                            LocalDateTime end = LocalDateTime.of(date, LocalTime.of(21, 0));
-
-                            Gap gap = new Gap(start, end, room);
-
-                            if (gaps.contains(gap)) {
-                                gaps.get(gaps.indexOf(gap)).getRooms().add(room);
-                            } else {
-                                gaps.add(gap);
-                            }
-                        }
-
-
-                    }
-
-*/
