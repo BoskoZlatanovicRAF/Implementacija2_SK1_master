@@ -7,6 +7,7 @@ import importExport.PDF_Export;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import model.Gap;
+import model.Manager;
 import model.Meeting;
 import model.Room;
 
@@ -22,6 +23,9 @@ import java.util.stream.Stream;
 @Getter
 
 public class WeeklySchedule extends Schedule<WeeklySchedule> {
+    static {
+        Manager.setObj(getInstance());
+    }
 
     private List<LocalDate> exceptions = new ArrayList<>();
     // Singleton pattern lazy synchronized
@@ -182,7 +186,7 @@ public class WeeklySchedule extends Schedule<WeeklySchedule> {
         if (type.equals("csv")){
             CSVImportExport csvImportExport = new CSVImportExport();
             try {
-                List <Meeting> meetingList = csvImportExport.importData(fileDest, "src/main/resources/config.txt");
+                List <Meeting> meetingList = csvImportExport.importData(fileDest, "src\\main\\resources\\config.txt");
 
                 this.setMeetings(meetingList);
 
@@ -195,7 +199,7 @@ public class WeeklySchedule extends Schedule<WeeklySchedule> {
 
             JSONImportExport jsonImportExport = new JSONImportExport();
             try {
-                List <Meeting> meetingList = jsonImportExport.importData(fileDest,"src/main/resources/config.json");
+                List <Meeting> meetingList = jsonImportExport.importData(fileDest,"C:\\Users\\User\\IdeaProjects\\Implementacija2_SK1_master\\src\\main\\resources\\config.json");
                 this.setMeetings(meetingList);
 
                 return true;
